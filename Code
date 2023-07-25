@@ -1,0 +1,178 @@
+import re
+from nltk import word_tokenize, sent_tokenize
+from nltk.corpus import stopwords
+from string import punctuation
+from textblob import TextBlob
+import numpy as np
+import pandas as pd
+import os
+
+class TextAnalyzer:
+    def __init__(self, text):
+        self.text = text
+
+    def preprocess_text(self):
+        # Tokenize the text into words
+        words = word_tokenize(self.text)
+
+        # Remove punctuation and special characters
+        words = [word.lower() for word in words if word.isalnum()]
+
+        # Remove stopwords
+        stop_words = set(stopwords.words('english'))
+        words = [word for word in words if word not in stop_words]
+        word_count=len(words)
+       
+        joined_text=" ".join(words)
+        
+        return joined_text , words , word_count
+    
+    def calculate_sentiment_scores(self):
+        # Create a TextBlob object with the input text
+        preprocessed_text , _ , _ = self.preprocess_text()
+        blob = TextBlob(preprocessed_text)
+
+        # Calculate polarity score (-1 to 1, where -1 is very negative, 1 is very positive)
+        polarity_score = blob.sentiment.polarity
+
+        # Calculate subjectivity score (0 to 1, where 0 is very objective, 1 is very subjective)
+        subjectivity_score = blob.sentiment.subjectivity
+
+        # Calculate positivity and negativity scores
+        pos_score = sum(1 for sentence in blob.sentences if sentence.sentiment.polarity > 0)
+        neg_score = sum(1 for sentence in blob.sentences if sentence.sentiment.polarity < 0)
+
+        return pos_score, neg_score, polarity_score, subjectivity_score
+    
+    def count_personal_pronouns(self):
+        
+        preprocessed_text , _ , _ = self.preprocess_text()
+        
+        # Define the pattern to match personal pronouns
+        pronoun_pattern = r"\b(?!US\b)(I|we|my|our|us|We|My|Our|Us)\b"
+
+        # Find all matches of personal pronouns in the text
+
+        matches = re.findall(pronoun_pattern, text.lower())
+
+        # Count the occurrences of personal pronouns
+        count_of_personal_pronouns = len(matches)
+
+        return count_of_personal_pronouns
+    
+    def avg_word_length(self):
+        _ , words , _ = self.preprocess_text()
+        total_characters = sum(len(word) for word in words)
+        total_words = len(words)
+        if total_words == 0:
+            return 0
+        average_word_length = np.ceil(total_characters / total_words) 
+        
+        return average_word_length  
+    
+    def average_sentence_length(self):
+        sentences = sent_tokenize(self.text)
+        num_sentences = len(sentences)
+        if num_sentences == 0:
+            return 0
+        word_counts = [len(word_tokenize(sentence)) for sentence in sentences]
+        average_sentence_length=np.ceil(sum(word_counts) / num_sentences)
+            
+        return average_sentence_length
+    
+    def count_syllables(self, word):
+         
+        patterns = re.compile(r'[aeiouy]+|'  # Single vowel
+                      r'[aeiouy]+[^aeiouy]+[aeiouy]+|'  # Vowel followed by consonants and then another vowel
+                      r'[^aeiouy]*[aeiouy]+[^aeiouy]*',  # Vowel surrounded by consonants
+                      re.IGNORECASE)
+           
+        # Count the matches for each pattern in the word
+        syllable_count = len(re.findall(patterns, word))
+
+        # Handle exceptions for words ending with "es" or "ed"
+        if word.endswith(("es", "ed")):
+            syllable_count = max(1, syllable_count - 1)
+
+        return syllable_count
+
+    def count_complex_words(self):
+        _ , word_list , _ = self.preprocess_text()
+        complex_word_count = 0
+
+        for word in word_list:
+            syllable_count = self.count_syllables(word)
+
+            if syllable_count > 2:
+                complex_word_count += 1
+
+        return complex_word_count
+
+    def count_syllables_in_text(self):
+        _ , word_list , _ = self.preprocess_text()
+
+        # Count syllables for each word
+        syllable_counts = [self.count_syllables(word) for word in word_list]
+        len_syll_count=len(syllable_counts)
+        if len_syll_count == 0:
+            return 0
+        
+        syllable_count_per_word = np.ceil(sum(syllable_counts) / len_syll_count)
+
+        return syllable_count_per_word
+    
+    def Per_complex_word(self):
+        _ , word_list, _ = self.preprocess_text()
+        complex_word_count = self.count_complex_words()
+        
+        if len(word_list) == 0:
+            return 0
+        
+        percentage_complex_word = np.ceil((complex_word_count / len(word_list)) * 100)
+        
+        return percentage_complex_word
+    
+    def Fog_Index(self):
+        avg_sent_len = self.average_sentence_length()
+        per_complex_word = self.Per_complex_word()
+        fog_index = 0.4 * (avg_sent_len + per_complex_word)
+        return fog_index
+        
+    def Avg_words_per_sent(self):
+        _ , word_list , _ = self.preprocess_text()
+        sentence_list = sent_tokenize(self.text)
+        num_sentences = len(sentence_list)
+        
+        if num_sentences == 0:
+            return 0
+
+        avg_words_per_sent = np.ceil(len(word_list) / num_sentences )
+        return avg_words_per_sent
+
+file_path=[os.path.join(r"C:\Users\DELL\xyz\Merged",i) for i in os.listdir(r"C:\Users\DELL\xyz\Merged")]
+file_path
+
+def text_data(file_path):
+    with open(file_path, 'r',encoding='utf-8') as file:
+        text = file.read()
+    return text
+
+df1=pd.DataFrame(columns=['Id'])
+df1['Id']= [os.path.splitext(i)[0].split("\\")[-1] for i in file_path]
+df1['Text']=[text_data(i) for i in file_path]
+df1
+
+df1['POSITIVE SCORE']=df1.Text.apply(lambda x: TextAnalyzer(x).calculate_sentiment_scores()[0] )
+df1['NEGATIVE SCORE']=df1.Text.apply(lambda x: TextAnalyzer(x).calculate_sentiment_scores()[1] )
+df1['POLARITY SCORE']=df1.Text.apply(lambda x: TextAnalyzer(x).calculate_sentiment_scores()[2] )
+df1['SUBJECTIVITY SCORE']=df1.Text.apply(lambda x: TextAnalyzer(x).calculate_sentiment_scores()[3] )
+df1['AVG SENTENCE LENGTH']=df1.Text.apply(lambda x: TextAnalyzer(x).average_sentence_length() )
+df1['PERCENTAGE OF COMPLEX WORDS']=df1.Text.apply(lambda x: TextAnalyzer(x).Per_complex_word() )
+df1['FOG INDEX']=df1.Text.apply(lambda x: TextAnalyzer(x).Fog_Index() )
+df1['AVG NUMBER OF WORDS PER SENTENCE']=df1.Text.apply(lambda x: TextAnalyzer(x).Avg_words_per_sent() )
+df1['COMPLEX WORD COUNT']=df1.Text.apply(lambda x: TextAnalyzer(x).count_complex_words())
+df1['WORD COUNT']=df1.Text.apply(lambda x: TextAnalyzer(x).preprocess_text()[2] )
+df1['SYLLABLE PER WORD']=df1.Text.apply(lambda x: TextAnalyzer(x).count_syllables_in_text() )
+df1['PERSONAL PRONOUNS']=df1.Text.apply(lambda x: TextAnalyzer(x).count_personal_pronouns() )
+df1['AVG WORD LENGTH']=df1.Text.apply(lambda x: TextAnalyzer(x).avg_word_length() )
+df1
